@@ -1,6 +1,9 @@
 # Ignore all CSV files
 *.csv
 
+# Ignore all PNG files
+*.png
+
 # History files
 .Rhistory
 .Rapp.history
@@ -54,4 +57,5 @@ rsconnect/
 # macOS specific file
 .DS_Store
 
+# Duplicate line removed
 *.csv
