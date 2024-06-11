@@ -54,3 +54,4 @@ rsconnect/
 # macOS specific file
 .DS_Store
 
+*.csv
