@@ -3,12 +3,14 @@ title: "Luminex Xponent: Plate-level Quality Control"
 author: "Sahal Thahir & Jeff Bailey"
 date: "2024-06-04"
 params:
-  input_file: "data/raw/luminex/RTSS_Ahero_IgG3_3.21.24_Lowbeadtest.csv"  # Path to the input CSV file
+  input_file: "data/raw/luminex/Control Run 13 June 2024_20240613_161509.csv"  # Path to the input CSV file
+  num_wells: 88 #number of wells used on plate
   min_beadcount: 50  # Minimum bead count for well bead QC
   min_Rsquared: 0.90 # Minimum R-squared for passing standard curve QC
   file_path: "data/qc"  # Output filepath for plate-level plots and PDFs 
   background: "BSA" # Name the analyte column for background subtraction
-  standards: ["AMA1", "CelTos", "HRPII"] # List of standard analytes, use ["Analyte1", "Analyte2", etc.]
+  standards: ["AMA1", "CelTos", "HRPII", "Rickettsia", "Dengue 1", "Pf MSP1", "Dengue 3", "Dengue 4", 
+               "Pm MSP1", "CCHFV", "Dengue 2", "Measles", "Chikungunya", "Pv MSP1", "Po MSP1", "Zika"] # List of standard analytes, use ["Analyte1", "Analyte2", etc.]
 output:
   pdf_document:
     toc: true  # Include table of contents
@@ -88,23 +90,17 @@ This code chunk will ensure these packages are installed and loaded.
 ```{r Plate QC- Extract Median MFI and bead count, echo=FALSE, fig.height=17, fig.width=10, warning=FALSE}
 # No input required
 
-# Median MFI 
+# Median MFI
     # Extracting Median MFI data from the raw file
-    # Median MFI dataframe: Extract data between "Median" and two rows above "Net MFI"
+    # Median MFI dataframe: Extract data from "Median" with the number of wells defined in param$num_wells
     # Find the row index containing the word "Median"
     median_row_index <- grep("Median", lines)
     
-    # Find the row index containing the word "Net MFI"
-    net_mfi_row_index <- grep("Net MFI", lines)
-    
-    # Find the row index of two rows above "Net MFI"
-    net_mfi_row_index <- net_mfi_row_index - 2
-    
-    # Extract data between "Median" and two rows above "Net MFI"
-    data_lines <- lines[(median_row_index + 1):net_mfi_row_index]
+    # Extract data lines using params$num_wells after median row index
+    data_lines_median <- lines[(median_row_index + 1):(median_row_index + params$num_wells)]
     
     # Create a data frame from the extracted lines
-    medianMFI_df <- read.csv(text = paste(data_lines, collapse = "\n"), na.strings = "")
+    medianMFI_df <- read.csv(text = paste(data_lines_median, collapse = "\n"), na.strings = "")
     
     # Trim medianMFI_df to include only columns between "Location" and the column before "Total.Events"
     location_index <- grep("Location", colnames(medianMFI_df))
@@ -112,48 +108,33 @@ This code chunk will ensure these packages are installed and loaded.
     medianMFI_df <- medianMFI_df[, c(location_index, (location_index + 1):(total_events_index - 1))]
 
 # Bead count dataframe (beadcount_df)
-    # Extracting Bead Count data from the raw file
-    # Read lines from the input file
-    lines <- readLines(input_file)
-    
-    # Identify the start row for bead count data
-    start_row <- grep("DataType", lines)
-    start_row <- start_row[grepl("Count", lines[start_row])]
-    start_row <- start_row[!grepl("Per Bead", lines[start_row])]
-    start_row <- max(start_row) + 1
-    
-    # Identify the end row for bead count data
-    end_row <- grep("Avg Net MFI", lines) - 2
-    
-    # Extract the beadcount_df data frame
-    if (length(start_row) > 0 & length(end_row) > 0) {
-      beadcount_df <- read.csv(text = paste(lines[start_row:end_row], collapse = "\n"))
+      # Extracting Bead Count data from the raw file
+      # Read lines from the input file
+      lines <- readLines(input_file)
       
-      # Trim beadcount_df to include only columns between "Location" and the column before "Total.Events"
-      location_index <- grep("Location", colnames(beadcount_df))
-      total_events_index <- grep("Total.Events", colnames(beadcount_df))
-      beadcount_df <- beadcount_df[, c(location_index, (location_index + 1):(total_events_index - 1))]
-    } else {
-      beadcount_df <- NULL
-    }
-
-# Ensure data alignment
-    # Ensure no missing values in the location and sample columns
-      if (any(is.na(medianMFI_df$Location)) | any(is.na(beadcount_df$Location))) {
-        stop("Missing values found in the 'Location' column.")
+      # Identify the start row for bead count data
+      start_row <- grep("DataType", lines)
+      start_row <- start_row[grepl("Count", lines[start_row])]
+      start_row <- start_row[!grepl("Per Bead", lines[start_row])]
+      start_row <- max(start_row) + 1
+      
+      # Identify the end row for bead count data based on params$num_wells
+      end_row <- start_row + params$num_wells - 1
+      
+      # Extract data lines between start_row and end_row
+      data_lines_beadcount <- lines[start_row:end_row]
+      
+      # Extract the beadcount_df data frame
+      if (length(start_row) > 0 & length(end_row) > 0) {
+        beadcount_df <- read.csv(text = paste(data_lines_beadcount, collapse = "\n"))
+        
+        # Trim beadcount_df to include only columns between "Location" and the column before "Total.Events"
+        location_index <- grep("Location", colnames(beadcount_df))
+        total_events_index <- grep("Total.Events", colnames(beadcount_df))
+        beadcount_df <- beadcount_df[, c(location_index, (location_index + 1):(total_events_index - 1))]
+      } else {
+        beadcount_df <- NULL
       }
-      
-      if (any(is.na(medianMFI_df$Sample)) | any(is.na(beadcount_df$Sample))) {
-        stop("Missing values found in the 'Sample' column.")
-      }
-      
-         # Ensure all column names match between the two data frames
-      if (!identical(colnames(medianMFI_df), colnames(beadcount_df))) {
-        stop("The column names do not match between the median MFI and bead count data frames.")
-      }
-      
-      # If the column names are identical
-      print("Column names are consistent between the median MFI and bead count data frames.")
 ```
 
 3. **Identify low bead count wells:** this searches the beadcount data frame for well-antigen data with low bead count, as set in the YAML.This will export a csv file of the samples which will need to be rerun. 
@@ -302,118 +283,96 @@ This first chunk conducts background MFI subtraction, based on the analyte defin
 ```
 This code chunk 
 ```{r Plate QC- plate standard plots, echo=FALSE, fig.height=14, fig.width=8, warning=FALSE}
-# No input required
-
-# Analytes: Get the names of the specified standard analytes from params
-analytes <- params$standards
-
-# Check if the specified analytes exist in the medianMFI_df
-valid_analytes <- analytes[analytes %in% names(medianMFI_df)]
-
-# Warn if any specified analytes are not found in the data frame
-if (length(valid_analytes) != length(analytes)) {
-  warning("The following analytes were not found in the data frame and will be ignored: ", 
-          paste(setdiff(analytes, valid_analytes), collapse = ", "))
-}
-
-# Initialize plate_qc as an empty dataframe
-plate_qc <- data.frame(Analyte = character(), R_squared = numeric())
-
-# Function to calculate correlation and R-squared
-calculate_correlation <- function(df) {
-  lm_model <- lm(Log10_MFI ~ Dilution_Factor, data = df)
-  correlation <- cor(df$Log10_MFI, df$Dilution_Factor)
-  r_squared <- summary(lm_model)$r.squared
-  return(list(correlation = correlation, r_squared = r_squared))
-}
-
-# Step 1: Filter standard samples
-standards_df <- medianMFI_df %>%
-  filter(str_detect(Sample, "Standard"))
-
-# Step 2: Extract dilution factor
-standards_df <- standards_df %>%
-  mutate(Dilution_Factor = -as.numeric(str_extract(Sample, "\\d+")))
-
-# Step 3: Prepare data for plotting
-melted_df <- standards_df %>%
-  select(-Sample) %>%
-  pivot_longer(cols = all_of(valid_analytes), 
-               names_to = "Analyte", 
-               values_to = "MFI") %>%
-  mutate(Log10_MFI = log10(MFI + 1))  # Adding 1 to avoid log(0)
-
-# Step 4: Create standard curves for each analyte
-plots_list <- lapply(unique(melted_df$Analyte), function(analyte) {
-  # Filter data for the current analyte and remove NA/infinite values
-  analyte_df <- filter(melted_df, Analyte == analyte & !is.na(Log10_MFI) & !is.infinite(Log10_MFI))
-  
-  # Check if analyte_df is empty after filtering
-  if (nrow(analyte_df) == 0) {
-    message(paste("No valid data for analyte:", analyte))
-    return(NULL)
-  }
-  
-  # Create plot
-  plot <- ggplot(analyte_df, aes(x = Dilution_Factor, y = Log10_MFI)) +
-    geom_point() +
-    geom_smooth(method = "lm", se = FALSE, color = "blue") + # Add line of best fit
-    labs(title = paste("Standard curve for", analyte),
-         x = "Dilution Factor",
-         y = "Log10(MFI)") +
-    theme_minimal()
-  
-  # Calculate correlation and R-squared
-  correlation_r_squared <- calculate_correlation(analyte_df)
-  
-  # Add R-squared value to the plot annotation
-  plot <- plot + 
-    annotate("text", x = Inf, y = -Inf, 
-             label = paste("R^2 =", round(correlation_r_squared$r_squared, 2)), 
-             hjust = 1, vjust = 0)
-  
-  # Append analyte and R-squared value to plate_qc data frame
-  plate_qc <<- bind_rows(plate_qc, data.frame(Analyte = analyte, R_squared = correlation_r_squared$r_squared))
-  
-  return(plot)
-})
-
-# Combine all plots into a single object
-combined_plots <- do.call(gridExtra::grid.arrange, c(plots_list, ncol = 2))
-
-# Print combined plots
-print(combined_plots)
-
-# Print the plate_qc data frame with R-squared values
-print(plate_qc)
-```
-```{r Plate QC- R squared calculation, echo=FALSE, warning=FALSE}
-    # Extract the minimum R-squared value from the parameters
-    min_Rsquared <- as.numeric(params$min_Rsquared)
+#Not inputs required 
+    # Analytes: Get the names of the specified standard analytes from params
+    analytes <- params$standards
     
-    # Remove duplicate rows from plate_qc to ensure unique entries
-    plate_qc <- plate_qc %>%
-      distinct()
+          # Check if the specified analytes exist in the medianMFI_df
+          valid_analytes <- analytes[analytes %in% names(medianMFI_df)]
+          
+          # Warn if any specified analytes are not found in the data frame
+          if (length(valid_analytes) != length(analytes)) {
+            warning("The following analytes were not found in the data frame and will be ignored: ", 
+                    paste(setdiff(analytes, valid_analytes), collapse = ", "))
+          }
     
-    # Create a column 'min_Rsq' indicating whether each analyte meets the minimum R-squared value
-    plate_qc$min_Rsq <- plate_qc$R_squared > min_Rsquared
-    plate_qc$min_Rsq <- as.logical(plate_qc$min_Rsq)
+    # Initialize plate_qc as an empty dataframe
+    plate_qc <- data.frame(Analyte = character(), R_squared = numeric(), Equation = character())
     
-    # View the plate_qc data frame
-    plate_qc
-    
-    # Check if any analyte meets the preset minimum R-squared value
-    if (any(plate_qc$min_Rsq)) {
-      # If at least one analyte meets the criteria
-      print("This plate has passed plate-level quality control for standard curve linearity.")
-      print("At least one analyte meets the criteria for the preset minimum R-squared (see min_Rsquared in YAML).")
-      print("Median MFI from this plate will be included in the compiled study dataframe.")
-    } else {
-      # If no analytes meet the criteria
-      print("This plate has failed plate-level QC for standard curves.")
-      print("No analytes met the preset minimum R-squared (see min_Rsquared in YAML).")
-      print("All MFI values from this plate will display as `Failed Plate QC`.")
+    # Function to calculate correlation and R-squared
+    calculate_correlation <- function(df) {
+      lm_model <- lm(Log10_MFI ~ Dilution_Factor, data = df)
+      correlation <- cor(df$Log10_MFI, df$Dilution_Factor)
+      r_squared <- summary(lm_model)$r.squared
+      return(list(correlation = correlation, r_squared = r_squared, lm_model = lm_model))
     }
+    
+          # Step 1: Filter standard samples
+          standards_df <- medianMFI_df %>%
+            filter(str_detect(Sample, "Standard"))
+          
+          # Step 2: Extract dilution factor
+          standards_df <- standards_df %>%
+            mutate(Dilution_Factor = -as.numeric(str_extract(Sample, "\\d+")))
+          
+          # Step 3: Prepare data for plotting
+          melted_df <- standards_df %>%
+            select(-Sample) %>%
+            pivot_longer(cols = all_of(valid_analytes), 
+                         names_to = "Analyte", 
+                         values_to = "MFI") %>%
+            mutate(Log10_MFI = log10(MFI + 1))  # Adding 1 to avoid log(0)
+          
+          # Step 4: Create standard curves for each analyte
+          plots_list <- lapply(unique(melted_df$Analyte), function(analyte) {
+            # Filter data for the current analyte and remove NA/infinite values
+            analyte_df <- filter(melted_df, Analyte == analyte & !is.na(Log10_MFI) & !is.infinite(Log10_MFI))
+            
+            # Check if analyte_df is empty after filtering
+            if (nrow(analyte_df) == 0) {
+              message(paste("No valid data for analyte:", analyte))
+              return(NULL)
+            }
+            
+            # Calculate correlation and R-squared
+            correlation_r_squared <- calculate_correlation(analyte_df)
+      
+      # Create plot
+      plot <- ggplot(analyte_df, aes(x = Dilution_Factor, y = Log10_MFI)) +
+        geom_point() +
+        geom_smooth(method = "lm", se = FALSE, color = "blue") + # Add line of best fit
+        labs(title = paste("Standard curve for", analyte),
+             x = "Dilution Factor",
+             y = "Log10(MFI)") +
+        theme_minimal()
+            
+            # Add R-squared value and equation of the line to the plot annotation
+            equation <- sprintf("y = %.2fx + %.2f", coef(correlation_r_squared$lm_model)[2], coef(correlation_r_squared$lm_model)[1])
+            plot <- plot + 
+              annotate("text", x = Inf, y = -Inf, 
+                       label = paste("R^2 =", round(correlation_r_squared$r_squared, 2), "\n", equation), 
+                       hjust = 1, vjust = 0, size = 3, color = "black")
+            
+      # Append analyte and R-squared value to plate_qc data frame
+      plate_qc <<- bind_rows(plate_qc, data.frame(Analyte = analyte, R_squared = correlation_r_squared$r_squared, Equation = equation))
+      
+      return(plot)
+    })
+    
+            # Filter out NULL plots
+            plots_list <- Filter(Negate(is.null), plots_list)
+            
+            # Combine all plots into a single object
+            if (length(plots_list) > 0) {
+              combined_plots <- do.call(gridExtra::grid.arrange, c(plots_list, ncol = 2))
+              # Print combined plots
+              print(combined_plots)
+            } else {
+              message("No valid plots to display.")
+            }
+    
+    # Print the plate_qc data frame with R-squared values
+    print(plate_qc)
 ```
 
 ### Create quality controlled Median MFI data

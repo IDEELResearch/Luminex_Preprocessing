@@ -317,11 +317,16 @@ lapply(file_paths, process_file)
 ```
 
 ```{r QC summary csv files, echo=FALSE}
+# Extract project name from the filenames in the raw data folder
+raw_files <- list.files("data/raw/luminex", pattern = "\\.csv$", full.names = TRUE)
+first_file_name <- basename(raw_files[1])
+project_name <- unlist(strsplit(first_file_name, "_"))[1]
+
 # Combine the QC results into a single data frame
 all_plates_standardsqc <- do.call(rbind, standard_qc_results)
 
-# Write the standard QC results to a CSV file
-output_standard_qc <- file.path("data/qc", "all_plates_standardsqc.csv")
+# Write the standard QC results to a CSV file with the project name prefixed
+output_standard_qc <- file.path("data/qc", paste0(project_name, "_all_plates_standardsqc.csv"))
 write.csv(all_plates_standardsqc, file = output_standard_qc, row.names = FALSE)
 cat("Standard QC results have been exported to", output_standard_qc, "\n")
 
@@ -338,10 +343,11 @@ for (beadqc_file in beadqc_files) {
 # Combine the bead QC data into a single data frame
 all_plates_beadqc <- do.call(rbind, compiled_beadqc_data)
 
-# Write the compiled bead QC data to a CSV file
-output_beadqc <- file.path("data/qc", "all_plates_beadqc.csv")
+# Write the compiled bead QC data to a CSV file with the project name prefixed
+output_beadqc <- file.path("data/qc", paste0(project_name, "_all_plates_beadqc.csv"))
 write.csv(all_plates_beadqc, file = output_beadqc, row.names = FALSE)
 cat("Compiled bead QC data has been exported to", output_beadqc, "\n")
+
 
 ```
 
