@@ -1,3 +1,9 @@
+## Author
+
+Sahal Thahir, MD  
+sahal@med.unc.edu
+
+
 # Luminex Data Extraction and Quality Control Pipeline
 
 This project processes Luminex Xponent data for quality control, extraction, and visualization. It is designed for flexibility, requiring minimal user input to update configuration files for each dataset.
@@ -92,11 +98,5 @@ Run the scripts in order:
 
 ---
 
-## Author
-
-Sahal Thahir, MD  
-sahal@med.unc.edu
-
-## Acknowledgments
 
 This pipeline was designed to streamline Luminex data processing and enhance reproducibility.
